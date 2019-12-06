@@ -14,5 +14,14 @@ cache the metadata of the torrents, so then, torrent-playing only connect to the
 $ npm install
 $ mkdir ~/torrentsfs
 $ node mount.js -m ~/torrentsfs
-$ node add_magnet_url.js "	magneturl"
+$ node add_magnet_url.js "magneturl"
 ```
+
+## TODO
+
+- [ ] Unmount directories on quit.
+- [ ] Better documentation.
+- [ ] Pool for connected torrents.
+- [ ] Clean cached data for `torrent-stream`.
+- [ ] Improve cli for allow more parameters.
+- [ ] Make it an npm package.
