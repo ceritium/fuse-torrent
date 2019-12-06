@@ -31,7 +31,7 @@ module.exports = function (source, mnt, tmp) {
   function engine() {
     if(!_engine) {
       console.log('Start engine: ' + source.name)
-      _engine = torrentStream(source.magnet_url)
+      _engine = torrentStream(source.magnet_url, { tmp: tmp })
 
       var harakiri = function () {
         if(uninterestedAt) {
