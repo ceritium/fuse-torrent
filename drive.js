@@ -3,6 +3,7 @@ const fuse = require('fuse-bindings')
 const mkdirp = require('mkdirp')
 const torrentStream = require('torrent-stream')
 const path = require('path')
+const events = require('events')
 
 var ENOENT = -2
 var EPERM = -1
@@ -11,6 +12,8 @@ module.exports = function (source, mnt, tmp) {
   const isLazy = true
   if (!mnt) mnt = '.'
 
+
+  var drive = new events.EventEmitter()
   var handlers = {}
   var ctime = new Date()
   var mtime = new Date()
@@ -22,6 +25,7 @@ module.exports = function (source, mnt, tmp) {
   fuse.unmount(mnt, function () {
     mkdirp(mnt, function () {
       fuse.mount(mnt, handlers)
+        drive.emit('mount')
         console.log("Mounted " + mnt)
     })
   })
@@ -279,7 +283,5 @@ module.exports = function (source, mnt, tmp) {
     cb()
   }
 
-  return engine
-
-  // return engine
+  return drive
 }
