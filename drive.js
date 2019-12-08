@@ -1,4 +1,3 @@
-const prettysize = require('prettysize')
 const fuse = require('fuse-bindings')
 const mkdirp = require('mkdirp')
 const torrentStream = require('torrent-stream')
@@ -19,20 +18,30 @@ module.exports = function (source, mnt, tmp) {
   let uninterestedAt = null
 
   const sourceFiles = JSON.parse(source.metadata).files
-  mnt = path.join(mnt, path.resolve('/', source.name))
-  fuse.unmount(mnt, function () {
-    mkdirp(mnt, function () {
-      fuse.mount(mnt, handlers)
-      drive.emit('mount')
-      console.log('Mounted ' + mnt)
+
+  if (source.name === (sourceFiles[0] && sourceFiles[0].path)) {
+    var dir = source.name.replace(/\.[^.]+$/, '')
+    sourceFiles.forEach(function (file) {
+      file.path = path.join(dir, file.path)
+    })
+    source.name = dir
+  }
+
+  source.mnt = path.join(mnt, path.resolve('/', source.name))
+
+  fuse.unmount(source.mnt, function () {
+    mkdirp(source.mnt, function () {
+      fuse.mount(source.mnt, handlers)
+      drive.emit('mount', source)
     })
   })
 
   let _engine
   function engine () {
     if (!_engine) {
-      console.log('Start engine: ' + source.name)
+      drive.emit('start', source)
       _engine = torrentStream(source.magnet_url, { tmp: tmp })
+      drive.engine = _engine
 
       var harakiri = function () {
         if (uninterestedAt) {
@@ -42,15 +51,14 @@ module.exports = function (source, mnt, tmp) {
             clearInterval(interval)
             engine().destroy()
             _engine = null
-            console.log('Stop engine: ' + source.name)
+            drive.emit('stop', source)
           }
-          console.log(lapsus)
         }
       }
       var interval = setInterval(harakiri, 5000)
 
       engine().once('ready', function () {
-        console.log('Ready engine: ' + source.name)
+        drive.emit('ready', source)
         if (engine().torrent.name === (_engine.files[0] && _engine.files[0].path)) {
           var dir = engine().torrent.name.replace(/\.[^.]+$/, '')
           engine().torrent.files.forEach(function (file) {
@@ -60,26 +68,15 @@ module.exports = function (source, mnt, tmp) {
         }
 
         engine().on('download', function (index) {
-          const down = prettysize(engine().swarm.downloaded)
-          const downSpeed = prettysize(engine().swarm.downloadSpeed()).replace('Bytes', 'b') + '/s'
-
-          const notChoked = function (result, wire) {
-            return result + (wire.peerChoking ? 0 : 1)
-          }
-          const connects = engine().swarm.wires.reduce(notChoked, 0) + '/' + _engine.swarm.wires.length + ' peers'
-
-          console.log('Downloaded ' + connects + ' : ' + downSpeed + ' : ' + down + ' of ' + prettysize(engine().torrent.length) + ' for ' + source.name + ' : ' + index)
+          drive.emit('download', index)
         })
 
         engine().on('uninterested', function () {
-          // console.log('Uninterested: ' + source.name)
           uninterestedAt = new Date()
           engine().swarm.pause()
         })
 
         engine().on('interested', function () {
-          // console.log('Interested: ' + source.name)
-          // console.log(engine().selection)
           uninterestedAt = null
           engine().swarm.resume()
         })

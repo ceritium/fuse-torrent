@@ -1,3 +1,4 @@
+const prettysize = require('prettysize')
 const fuse = require('fuse-bindings')
 const sqlite = require('sqlite')
 const fs = require('fs')
@@ -28,14 +29,30 @@ if (!tmp) tmp = '/tmp'
 mount = fs.realpathSync(mount)
 tmp = fs.realpathSync(tmp)
 
-const id = 0
+let id = 0
 
 async function start () {
   const db = await sqlite.open('./database.sqlite')
   const torrents = await db.all('SELECT * FROM torrents where id > ?', id)
 
   torrents.forEach(item => {
-    drive(item, mount, tmp)
+    id = item.id
+    const events = drive(item, mount, tmp)
+    events.on('mount', source => console.log('Mounted ' + source.mnt))
+    events.on('start', source => console.log('Swarm starting ' + source.mnt))
+    events.on('ready', source => console.log('Swarm ready ' + source.mnt))
+    events.on('stop', source => console.log('Stop swarm' + source.mnt))
+    events.on('download', index => {
+      const down = prettysize(events.engine.swarm.downloaded)
+      const downSpeed = prettysize(events.engine.swarm.downloadSpeed()).replace('Bytes', 'b') + '/s'
+
+      const notChoked = function (result, wire) {
+        return result + (wire.peerChoking ? 0 : 1)
+      }
+      const connects = events.engine.swarm.wires.reduce(notChoked, 0) + '/' + events.engine.swarm.wires.length + ' peers'
+
+      console.log('Downloaded ' + connects + ' : ' + downSpeed + ' : ' + down + ' of ' + prettysize(events.engine.torrent.length) + ' for ' + item.name + ' : ' + index)
+    })
   })
 }
 
