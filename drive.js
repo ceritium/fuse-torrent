@@ -19,14 +19,6 @@ module.exports = function (source, mnt, tmp) {
 
   const sourceFiles = JSON.parse(source.metadata).files
 
-  if (source.name === (sourceFiles[0] && sourceFiles[0].path)) {
-    var dir = source.name.replace(/\.[^.]+$/, '')
-    sourceFiles.forEach(function (file) {
-      file.path = path.join(dir, file.path)
-    })
-    source.name = dir
-  }
-
   source.mnt = path.join(mnt, path.resolve('/', source.name))
 
   fuse.unmount(source.mnt, function () {
@@ -59,14 +51,6 @@ module.exports = function (source, mnt, tmp) {
 
       engine().once('ready', function () {
         drive.emit('ready', source)
-        if (engine().torrent.name === (_engine.files[0] && _engine.files[0].path)) {
-          var dir = engine().torrent.name.replace(/\.[^.]+$/, '')
-          engine().torrent.files.forEach(function (file) {
-            file.path = path.join(dir, file.path)
-          })
-          engine().torrent.name = dir
-        }
-
         engine().on('download', function (index) {
           drive.emit('download', index)
         })
