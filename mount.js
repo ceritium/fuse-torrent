@@ -31,11 +31,14 @@ tmp = fs.realpathSync(tmp)
 
 let id = 0
 
+var torrents = []
+
 async function start () {
   const db = await sqlite.open('./database.sqlite')
-  const torrents = await db.all('SELECT * FROM torrents where id > ?', id)
+  const items = await db.all('SELECT * FROM torrents where id > ?', id)
 
-  torrents.forEach(item => {
+  items.forEach(item => {
+    torrents.push(item)
     id = item.id
     const events = drive(item, mount, tmp)
     events.on('mount', source => console.log('Mounted ' + source.mnt))
@@ -59,7 +62,7 @@ async function start () {
 start()
 var checkNewTorrentsInterval = setInterval(start, 10000)
 
-function unmount (torrents, index) {
+function unmount (index) {
   const item = torrents[index]
 
   if (item) {
@@ -68,7 +71,7 @@ function unmount (torrents, index) {
 
     fuse.unmount(mnt, function () {
       fs.rmdir(mnt, function () {
-        unmount(torrents, index + 1)
+        unmount(index + 1)
       })
     })
   } else {
@@ -83,9 +86,7 @@ var exit = async function () {
   process.removeListener('SIGINT', exit)
   process.removeListener('SIGTERM', exit)
 
-  const db = await sqlite.open('./database.sqlite')
-  const torrents = await db.all('SELECT * FROM torrents')
-  unmount(torrents, 0)
+  unmount(0)
 }
 
 process.on('SIGINT', exit)
