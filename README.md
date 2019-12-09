@@ -20,9 +20,7 @@ $ node add_magnet_url.js "magneturl"
 
 ## TODO
 
-- [ ] Unmount directories on quit.
 - [ ] Better documentation.
 - [ ] Pool for connected torrents.
 - [ ] Clean cached data for `torrent-stream`.
-- [ ] Improve cli for allow more parameters.
 - [ ] Make it an npm package.
