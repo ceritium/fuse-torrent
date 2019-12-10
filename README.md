@@ -1,8 +1,8 @@
-# torrent-playing
+# fuse-torrent
 
 It is a working progress project, use it with precaution.
 
-**torrent-playing** (temporal name) is based on [torrent-mount](https://github.com/mafintosh/torrent-mount)
+**fuse-torrent** is based on [torrent-mount](https://github.com/mafintosh/torrent-mount)
 but it allows mounting several torrents at the same time.
 
 To mount several torrents at the same time without hit the performance of the network it relies upon **SQLite** to
@@ -11,11 +11,10 @@ cache the metadata of the torrents, so then, torrent-playing only connect to the
 ## Usage
 
 ```
-$ npm install
-$ mkdir ~/torrentsfs
-$ node db_prepare.js
-$ node mount.js -m ~/torrentsfs
-$ node add_magnet_url.js "magneturl"
+$ npm install -g fuse-torrent
+$ fuse-torrent db-prepare
+$ fuse-torrent mount /Users/jose.galisteo/torrentfs
+$ fuse-torrent add "magneturl"
 ```
 
 ## TODO

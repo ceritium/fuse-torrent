@@ -1,6 +1,17 @@
 {
   "name": "fuse-torrent",
-  "version": "0.0.1",
+  "description": "Allow mount several torrents in the filesystem.",
+  "author": "José Galisteo Ruiz",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ceritium/fuse-torrent/issues"
+  },
+  "homepage": "https://github.com/ceritium/fuse-torrent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ceritium/fuse-torrent.git"
+  },
+  "version": "0.0.0",
   "private": false,
   "scripts": {
     "autofix": "standard --fix"
