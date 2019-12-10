@@ -27,6 +27,8 @@ After doing that open mount directory using a file browser. The torrents should 
 
 BTW: It works pretty well with Plex.
 
+![MIND BLOWN](https://media.giphy.com/media/1AePOBF3JaxKtI96pY/giphy.gif)
+
 ## TODO
 
 - [ ] Better documentation.
