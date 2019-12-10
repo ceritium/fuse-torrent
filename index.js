@@ -8,6 +8,7 @@ const path = require('path')
 const torrentStream = require('torrent-stream')
 const drive = require('./drive.js')
 const Promise = require('bluebird')
+const os = require('os')
 
 var argv = require('yargs')
   .usage('Usage: $0 <command> [options]')
@@ -40,13 +41,11 @@ var argv = require('yargs')
   .argv
 
 const command = argv._[0]
+const dbPath = path.join(os.homedir(), '.fusetorrent')
+const dbFile = path.join(dbPath, 'database.sqlite')
 
 if (command === 'db-prepare') {
-  console.log('Running pending migrations')
-  Promise.resolve()
-    .then(() => sqlite.open('./database.sqlite', { Promise }))
-    .then(db => db.migrate({ force: 'last' }))
-  console.log('DB ready')
+  dbPrepare()
 }
 
 if (command === 'add') {
@@ -55,6 +54,18 @@ if (command === 'add') {
 
 if (command === 'mount') {
   mountTorrents()
+}
+
+function dbPrepare () {
+  if (!fs.existsSync(dbPath)) {
+    fs.mkdirSync(dbPath)
+  }
+
+  console.log('Running pending migrations')
+  Promise.resolve()
+    .then(() => sqlite.open(dbFile, { Promise }))
+    .then(db => db.migrate({ force: 'last' }))
+  console.log('DB ready')
 }
 
 async function addMagnetUrl (magnetUrl) {
@@ -67,7 +78,7 @@ async function addMagnetUrl (magnetUrl) {
     console.log('Files:')
     files.forEach(file => console.log(file))
     const metadata = JSON.stringify({ files: files })
-    const db = await sqlite.open('./database.sqlite')
+    const db = await sqlite.open(dbFile)
     await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata) VALUES (?, ?, ?, ?)',
       [magnetUrl, ts.torrent.name, ts.infohash, metadata])
 
@@ -88,7 +99,7 @@ function mountTorrents () {
   var torrents = []
 
   async function start () {
-    const db = await sqlite.open('./database.sqlite')
+    const db = await sqlite.open(dbFile)
     const items = await db.all('SELECT * FROM torrents where id > ?', id)
 
     items.forEach(item => {
