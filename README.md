@@ -22,4 +22,8 @@ $ fuse-torrent add "magneturl"
 - [ ] Better documentation.
 - [ ] Pool for connected torrents.
 - [ ] Clean cached data for `torrent-stream`.
-- [ ] Make it an npm package.
+- [ ] Allow group torrents.
+- [ ] Avoid duplicates by infohash.
+- [ ] Allow more parameters on cli.
+- [ ] Configuration by file.
+- [ ] Add version to cli.
