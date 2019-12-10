@@ -57,6 +57,7 @@ if (command === 'mount') {
 }
 
 function dbPrepare () {
+  const migrationsPath = path.join(__dirname, 'migrations')
   if (!fs.existsSync(dbPath)) {
     fs.mkdirSync(dbPath)
   }
@@ -64,7 +65,7 @@ function dbPrepare () {
   console.log('Running pending migrations')
   Promise.resolve()
     .then(() => sqlite.open(dbFile, { Promise }))
-    .then(db => db.migrate({ force: 'last' }))
+    .then(db => db.migrate({ force: 'last', migrationsPath: migrationsPath}))
   console.log('DB ready')
 }
 
