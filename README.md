@@ -13,7 +13,7 @@ cache the metadata of the torrents, so then, torrent-playing only connect to the
 ```
 $ npm install -g fuse-torrent
 $ fuse-torrent db-prepare
-$ fuse-torrent mount /Users/jose.galisteo/torrentfs
+$ fuse-torrent mount $HOME/torrentfs
 $ fuse-torrent add "magneturl"
 ```
 
