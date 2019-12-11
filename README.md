@@ -23,6 +23,8 @@ $ fuse-torrent mount $HOME/torrentfs
 $ fuse-torrent add "magneturl"
 ```
 
+Watch the [demo](https://youtu.be/XyFWidfHkYY).
+
 After doing that open mount directory using a file browser. The torrents should be mounted there now and you should be able to double-click them to start streaming as regular files!
 
 BTW: It works pretty well with Plex.
