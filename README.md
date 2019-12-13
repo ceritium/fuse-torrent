@@ -1,5 +1,7 @@
 # fuse-torrent
 
+[![npm version](https://badge.fury.io/js/fuse-torrent.svg)](https://badge.fury.io/js/fuse-torrent)
+
 It is a working progress project, use it with precaution.
 
 **fuse-torrent** is based on [torrent-mount](https://github.com/mafintosh/torrent-mount)
