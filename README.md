@@ -44,7 +44,6 @@ BTW: It works pretty well with Plex.
 - [ ] Better documentation.
 - [ ] Pool for connected torrents.
 - [ ] Clean cached data for `torrent-stream`.
-- [ ] Allow group torrents.
 - [ ] Avoid duplicates by infohash.
 - [ ] Allow more parameters on cli.
 - [ ] Configuration by file.
