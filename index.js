@@ -13,7 +13,7 @@ const os = require('os')
 var argv = require('yargs')
   .usage('Usage: $0 <command> [options]')
   .command('db-prepare', 'Prepare the db')
-  .command('add <magnetUrl>', 'Add magnet url to the DB', (yargs) => {
+  .command('add <magnetUrl> [category]', 'Add magnet url to the DB', (yargs) => {
     yargs
       .positional('magnetUrl', {
         describe: 'Magnet url',
@@ -49,7 +49,7 @@ if (command === 'db-prepare') {
 }
 
 if (command === 'add') {
-  addMagnetUrl(argv.magnetUrl)
+  addMagnetUrl(argv.magnetUrl, argv.category)
 }
 
 if (command === 'mount') {
@@ -69,7 +69,7 @@ function dbPrepare () {
   console.log('DB ready')
 }
 
-async function addMagnetUrl (magnetUrl) {
+async function addMagnetUrl (magnetUrl, category) {
   console.log('Fetching torrent')
   const ts = torrentStream(magnetUrl)
   ts.on('ready', async function () {
@@ -80,8 +80,8 @@ async function addMagnetUrl (magnetUrl) {
     files.forEach(file => console.log(file))
     const metadata = JSON.stringify({ files: files })
     const db = await sqlite.open(dbFile)
-    await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata) VALUES (?, ?, ?, ?)',
-      [magnetUrl, ts.torrent.name, ts.infohash, metadata])
+    await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata, category) VALUES (?, ?, ?, ?, ?)',
+      [magnetUrl, ts.torrent.name, ts.infohash, metadata, category])
 
     process.exit()
   })

@@ -9,8 +9,6 @@ var EPERM = -1
 var ZERO = 0
 
 module.exports = function (source, mnt, tmp) {
-  if (!mnt) mnt = '.'
-
   var drive = new events.EventEmitter()
   var handlers = {}
   var ctime = new Date()
@@ -18,6 +16,10 @@ module.exports = function (source, mnt, tmp) {
   let uninterestedAt = null
 
   const sourceFiles = JSON.parse(source.metadata).files
+
+  if (source.category) {
+    mnt = path.join(mnt, path.resolve('/', source.category))
+  }
 
   source.mnt = path.join(mnt, path.resolve('/', source.name))
 
