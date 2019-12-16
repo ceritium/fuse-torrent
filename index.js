@@ -121,11 +121,9 @@ function mountTorrents () {
   let mount = argv.path
   let cache = argv.cachePath
   if (!mount) mount = '/tmp/data'
-  console.log(cache)
   if (!cache) cache = '/tmp'
   mount = fs.realpathSync(mount)
   cache = fs.realpathSync(cache)
-  console.log(cache)
 
   drive(dbFile, mount, cache)
   var exit = async function () {

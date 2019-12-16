@@ -53,7 +53,7 @@ module.exports = async function (dbFile, mnt, tmp) {
   fuse.unmount(mnt, function () {
     mkdirp(mnt, function () {
       fuse.mount(mnt, handlers)
-      console.log('fuse-torrent ready')
+      console.log(`fuse-torrent ready: ${mnt}`)
     })
   })
 
@@ -94,28 +94,28 @@ module.exports = async function (dbFile, mnt, tmp) {
       }
       var interval = setInterval(harakiri, 5000)
 
-      engine(filePath).on('uninterested', function () {
+      _engine.on('uninterested', function () {
         uninterestedAt = new Date()
-        engine(filePath).swarm.pause()
+        _engine.swarm.pause()
       })
 
-      engine(filePath).on('interested', function () {
+      _engine.on('interested', function () {
         uninterestedAt = null
-        engine(filePath).swarm.resume()
+        _engine.swarm.resume()
       })
 
-      engine(filePath).once('ready', () => console.log('Swarm ready ' + name))
+      _engine.once('ready', () => console.log('Swarm ready ' + name))
 
-      engine(filePath).on('download', index => {
-        const down = prettysize(engine(filePath).swarm.downloaded)
-        const downSpeed = prettysize(engine(filePath).swarm.downloadSpeed()).replace('Bytes', 'b') + '/s'
+      _engine.on('download', index => {
+        const down = prettysize(_engine.swarm.downloaded)
+        const downSpeed = prettysize(_engine.swarm.downloadSpeed()).replace('Bytes', 'b') + '/s'
 
         const notChoked = function (result, wire) {
           return result + (wire.peerChoking ? 0 : 1)
         }
-        const connects = engine(filePath).swarm.wires.reduce(notChoked, 0) + '/' + engine(filePath).swarm.wires.length + ' peers'
+        const connects = _engine.swarm.wires.reduce(notChoked, 0) + '/' + _engine.swarm.wires.length + ' peers'
 
-        console.log('Downloaded ' + connects + ' : ' + downSpeed + ' : ' + down + ' of ' + prettysize(engine(filePath).torrent.length) + ' for ' + name + ' : ' + index)
+        console.log('Downloaded ' + connects + ' : ' + downSpeed + ' : ' + down + ' of ' + prettysize(_engine.torrent.length) + ' for ' + name + ' : ' + index)
       })
     }
 
