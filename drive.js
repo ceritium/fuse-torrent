@@ -1,41 +1,81 @@
+const prettysize = require('prettysize')
 const fuse = require('fuse-bindings')
 const mkdirp = require('mkdirp')
 const torrentStream = require('torrent-stream')
+const sqlite = require('sqlite')
 const path = require('path')
-const events = require('events')
 
 var ENOENT = -2
 var EPERM = -1
 var ZERO = 0
 
-module.exports = function (source, mnt, tmp) {
-  var drive = new events.EventEmitter()
+module.exports = async function (dbFile, mnt, tmp) {
+  const db = await sqlite.open(dbFile)
+
   var handlers = {}
   var ctime = new Date()
   var mtime = new Date()
   let uninterestedAt = null
 
-  const sourceFiles = JSON.parse(source.metadata).files
+  var items = []
+  var sourceFiles = []
+  var categories = []
 
-  if (source.category) {
-    mnt = path.join(mnt, path.resolve('/', source.category))
+  async function refreshFiles () {
+    const newItems = await db.all('SELECT * FROM torrents')
+    newItems.forEach(function (item) {
+      if (item.category) {
+        item.path = path.join(item.category, item.name)
+      }
+    })
+    if (items !== newItems) {
+      items = newItems
+      categories = Array.from(new Set(
+        items.filter(function (item) { return item.category }).map(function (item) { return item.category })
+      ))
+      // categories = Array.from(new Set(items.filter(function (item) { return item.category }))).map(function(item){ return item.category})
+      sourceFiles = []
+      items.forEach(function (item) {
+        const itemFiles = JSON.parse(item.metadata).files
+        itemFiles.forEach(function (file) {
+          if (item.category) {
+            file.path = path.join(item.category, file.path)
+          }
+          sourceFiles.push(file)
+        })
+      })
+    }
   }
 
-  source.mnt = path.join(mnt, path.resolve('/', source.name))
+  await refreshFiles()
+  setInterval(refreshFiles, 5000)
 
-  fuse.unmount(source.mnt, function () {
-    mkdirp(source.mnt, function () {
-      fuse.mount(source.mnt, handlers)
-      drive.emit('mount', source)
+  fuse.unmount(mnt, function () {
+    mkdirp(mnt, function () {
+      fuse.mount(mnt, handlers)
+      console.log('fuse-torrent ready')
     })
   })
 
-  let _engine
-  function engine () {
-    if (!_engine) {
-      drive.emit('start', source)
-      _engine = torrentStream(source.magnet_url, { tmp: tmp })
-      drive.engine = _engine
+  var _engines = {}
+  function engine (filePath) {
+    const split = filePath.split('/')
+    let name
+    if (categories.find(function (cat) { return cat === split[0] })) {
+      name = split[1]
+    } else {
+      name = split[0]
+    }
+
+    if (!_engines[name]) {
+      console.log('Swarm starting ' + name)
+      const target = items.find(function (item) {
+        const term = item.name
+        return term === name
+      })
+
+      let _engine = torrentStream(target.magnet_url, { tmp: tmp })
+      _engines[name] = _engine
 
       var harakiri = function () {
         if (uninterestedAt) {
@@ -43,55 +83,70 @@ module.exports = function (source, mnt, tmp) {
           if (lapsus > 10) {
             uninterestedAt = null
             clearInterval(interval)
-            engine().destroy()
-            _engine = null
-            drive.emit('stop', source)
+            if (_engine) {
+              _engine.destroy()
+              _engine = null
+              _engines[name] = null
+            }
+            console.log('Stop swarm ' + name)
           }
         }
       }
       var interval = setInterval(harakiri, 5000)
 
-      engine().once('ready', function () {
-        drive.emit('ready', source)
-        engine().on('download', function (index) {
-          drive.emit('download', index)
-        })
+      engine(filePath).on('uninterested', function () {
+        uninterestedAt = new Date()
+        engine(filePath).swarm.pause()
+      })
 
-        engine().on('uninterested', function () {
-          uninterestedAt = new Date()
-          engine().swarm.pause()
-        })
+      engine(filePath).on('interested', function () {
+        uninterestedAt = null
+        engine(filePath).swarm.resume()
+      })
 
-        engine().on('interested', function () {
-          uninterestedAt = null
-          engine().swarm.resume()
-        })
+      engine(filePath).once('ready', () => console.log('Swarm ready ' + name))
+
+      engine(filePath).on('download', index => {
+        const down = prettysize(engine(filePath).swarm.downloaded)
+        const downSpeed = prettysize(engine(filePath).swarm.downloadSpeed()).replace('Bytes', 'b') + '/s'
+
+        const notChoked = function (result, wire) {
+          return result + (wire.peerChoking ? 0 : 1)
+        }
+        const connects = engine(filePath).swarm.wires.reduce(notChoked, 0) + '/' + engine(filePath).swarm.wires.length + ' peers'
+
+        console.log('Downloaded ' + connects + ' : ' + downSpeed + ' : ' + down + ' of ' + prettysize(engine(filePath).torrent.length) + ' for ' + name + ' : ' + index)
       })
     }
 
-    return _engine
+    return _engines[name]
   }
 
-  const findFromTorrent = function (path) {
-    return engine().files.reduce(function (result, file) {
-      return result || (file.path === path && file)
+  const findFromTorrent = function (filePath) {
+    const split = filePath.split('/')
+    if (categories.find(function (cat) { return cat === split[0] })) {
+      filePath = split.slice(1, split.length).join('/')
+    }
+
+    return engine(filePath).files.reduce(function (result, file) {
+      return result || (file.path === filePath && file)
     }, null)
   }
 
-  var find = function (path) {
+  var find = function (filePath) {
     return sourceFiles.reduce(function (result, file) {
-      return result || (file.path === path && file)
+      return result || (file.path === filePath && file)
     }, null)
   }
 
   handlers.displayFolder = true
   handlers.options = ['allow_other', 'auto_cache']
 
-  handlers.getattr = function (path, cb) {
-    path = path.slice(1)
+  handlers.getattr = function (filePath, cb) {
+    filePath = filePath.slice(1)
 
     var stat = {}
-    var file = find(path)
+    var file = find(filePath)
 
     stat.ctime = ctime
     stat.mtime = mtime
@@ -108,10 +163,10 @@ module.exports = function (source, mnt, tmp) {
     stat.size = 4096
     stat.mode = 16877 // 040755
 
-    if (!path) return cb(ZERO, stat)
+    if (!filePath) return cb(ZERO, stat)
 
     var dir = sourceFiles.some(function (file) {
-      return file.path.indexOf(path + '/') === 0
+      return file.path.indexOf(filePath + '/') === 0
     })
 
     if (!dir) return cb(ENOENT)
@@ -120,13 +175,13 @@ module.exports = function (source, mnt, tmp) {
 
   var files = {}
 
-  handlers.open = function (path, flags, cb) {
-    path = path.slice(1)
+  handlers.open = function (filePath, flags, cb) {
+    filePath = filePath.slice(1)
 
-    var file = find(path)
+    var file = find(filePath)
     if (!file) return cb(ENOENT)
 
-    var fs = files[path] = files[path] || []
+    var fs = files[filePath] = files[filePath] || []
     var fd = fs.indexOf(null)
     if (fd === -1) fd = fs.length
 
@@ -135,10 +190,10 @@ module.exports = function (source, mnt, tmp) {
     cb(ZERO, fd)
   }
 
-  handlers.release = function (path, handle, cb) {
-    path = path.slice(1)
+  handlers.release = function (filePath, handle, cb) {
+    filePath = filePath.slice(1)
 
-    var fs = files[path] || []
+    var fs = files[filePath] || []
     var f = fs[handle]
 
     if (f && f.stream) f.stream.destroy()
@@ -147,16 +202,16 @@ module.exports = function (source, mnt, tmp) {
     cb(ZERO)
   }
 
-  handlers.readdir = function (path, cb) {
-    path = path.slice(1)
+  handlers.readdir = function (filePath, cb) {
+    filePath = filePath.slice(1)
 
     var uniq = {}
     var files = sourceFiles
       .filter(function (file) {
-        return file.path.indexOf(path ? path + '/' : '') === 0
+        return file.path.indexOf(filePath ? filePath + '/' : '') === 0
       })
       .map(function (file) {
-        return file.path.slice(path ? path.length + 1 : 0).split('/')[0]
+        return file.path.slice(filePath ? filePath.length + 1 : 0).split('/')[0]
       })
       .filter(function (name) {
         if (uniq[name]) return false
@@ -168,11 +223,11 @@ module.exports = function (source, mnt, tmp) {
     cb(ZERO, files)
   }
 
-  handlers.read = function (path, handle, buf, len, offset, cb) {
-    path = path.slice(1)
+  handlers.read = function (filePath, handle, buf, len, offset, cb) {
+    filePath = filePath.slice(1)
 
-    var file = find(path)
-    var fs = files[path] || []
+    var file = find(filePath)
+    var fs = files[filePath] || []
     var f = fs[handle]
 
     if (!file) return cb(ENOENT)
@@ -185,33 +240,33 @@ module.exports = function (source, mnt, tmp) {
       f.stream = null
     }
 
-    var liip = function () {
-      if (engine().files.length === 0) return engine().once('ready', liip)
+    var loop = function () {
+      if (engine(filePath).files.length === 0) return engine(filePath).once('ready', loop)
 
       if (!f.stream) {
-        const f2 = findFromTorrent(path)
+        const f2 = findFromTorrent(filePath)
         f.stream = f2.createReadStream({ start: offset })
         f.offset = offset
       }
 
-      var loop = function () {
+      var innerLoop = function () {
         var result = f.stream.read(len)
-        if (!result) return f.stream.once('readable', loop)
+        if (!result) return f.stream.once('readable', innerLoop)
         result.copy(buf)
         cb(result.length)
       }
 
-      loop()
+      innerLoop()
     }
 
-    liip()
+    loop()
   }
 
-  handlers.write = function (path, handle, buf, len, offset, cb) {
+  handlers.write = function (filePath, handle, buf, len, offset, cb) {
     cb(EPERM)
   }
 
-  handlers.unlink = function (path, cb) {
+  handlers.unlink = function (filePath, cb) {
     cb(EPERM)
   }
 
@@ -219,27 +274,27 @@ module.exports = function (source, mnt, tmp) {
     cb(EPERM)
   }
 
-  handlers.mkdir = function (path, mode, cb) {
+  handlers.mkdir = function (filePath, mode, cb) {
     cb(EPERM)
   }
 
-  handlers.rmdir = function (path, cb) {
+  handlers.rmdir = function (filePath, cb) {
     cb(EPERM)
   }
 
-  handlers.create = function (path, mode, cb) {
+  handlers.create = function (filePath, mode, cb) {
     cb(EPERM)
   }
 
-  handlers.getxattr = function (path, name, buffer, length, offset, cb) {
+  handlers.getxattr = function (filePath, name, buffer, length, offset, cb) {
     cb(EPERM)
   }
 
-  handlers.setxattr = function (path, name, buffer, length, offset, flags, cb) {
+  handlers.setxattr = function (filePath, name, buffer, length, offset, flags, cb) {
     cb(ZERO)
   }
 
-  handlers.statfs = function (path, cb) {
+  handlers.statfs = function (filePath, cb) {
     cb(ZERO, {
       bsize: 1000000,
       frsize: 1000000,
@@ -258,6 +313,4 @@ module.exports = function (source, mnt, tmp) {
   handlers.destroy = function (cb) {
     cb()
   }
-
-  return drive
 }
