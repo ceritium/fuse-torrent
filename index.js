@@ -65,7 +65,7 @@ function dbPrepare () {
   console.log('Running pending migrations')
   Promise.resolve()
     .then(() => sqlite.open(dbFile, { Promise }))
-    .then(db => db.migrate({ force: 'last', migrationsPath: migrationsPath}))
+    .then(db => db.migrate({ force: 'last', migrationsPath: migrationsPath }))
   console.log('DB ready')
 }
 
@@ -89,11 +89,13 @@ async function addMagnetUrl (magnetUrl, category) {
 
 function mountTorrents () {
   let mount = argv.path
-  let tmp = argv.tmp
+  let cache = argv.cachePath
   if (!mount) mount = '/tmp/data'
-  if (!tmp) tmp = '/tmp'
+  console.log(cache)
+  if (!cache) cache = '/tmp'
   mount = fs.realpathSync(mount)
-  tmp = fs.realpathSync(tmp)
+  cache = fs.realpathSync(cache)
+  console.log(cache)
 
   let id = 0
 
@@ -106,7 +108,7 @@ function mountTorrents () {
     items.forEach(item => {
       torrents.push(item)
       id = item.id
-      const events = drive(item, mount, tmp)
+      const events = drive(item, mount, cache)
       events.on('mount', source => console.log('Mounted ' + source.mnt))
       events.on('start', source => console.log('Swarm starting ' + source.mnt))
       events.on('ready', source => console.log('Swarm ready ' + source.mnt))
