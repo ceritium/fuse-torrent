@@ -11,7 +11,7 @@
     "type": "git",
     "url": "https://github.com/ceritium/fuse-torrent.git"
   },
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": false,
   "scripts": {
     "autofix": "standard --fix"
