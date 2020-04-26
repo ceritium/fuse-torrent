@@ -5,6 +5,7 @@ const fuse = require('fuse-bindings')
 const sqlite = require('sqlite')
 const fs = require('fs')
 const path = require('path')
+const readTorrent = require('read-torrent')
 const torrentStream = require('torrent-stream')
 const drive = require('./drive.js')
 const Promise = require('bluebird')
@@ -17,6 +18,14 @@ var argv = require('yargs')
     yargs
       .positional('magnetUrl', {
         describe: 'Magnet url',
+        type: 'string',
+        default: null
+      })
+  })
+  .command('addtorrent <torrentFile> [category]', 'Add torrent file to the DB', (yargs) => {
+    yargs
+      .positional('torrentFile', {
+        describe: 'torrent file',
         type: 'string',
         default: null
       })
@@ -50,6 +59,10 @@ if (command === 'db-prepare') {
 
 if (command === 'add') {
   addMagnetUrl(argv.magnetUrl, argv.category)
+}
+
+if (command === 'addtorrent') {
+  addTorrentFile(argv.torrentFile, argv.category)
 }
 
 if (command === 'mount') {
@@ -87,15 +100,38 @@ async function addMagnetUrl (magnetUrl, category) {
   })
 }
 
+async function addTorrentFile (torrentFile, category) {
+  console.log('Fetching torrent')
+  readTorrent(torrentFile, function (err, torrent, raw) {
+    console.log(raw.toString('base64'))
+    if (err) {
+      console.error(err.message)
+      process.exit(2)
+    }
+    const ts = torrentStream(raw)
+    ts.on('ready', async function () {
+      const files = ts.files.map((file) => {
+        return { path: file.path, length: file.length }
+      })
+      console.log('Files:')
+      files.forEach(file => console.log(file))
+      const metadata = JSON.stringify({ files: files })
+      const db = await sqlite.open(dbFile)
+      await db.run('INSERT INTO Torrents (torrentfile, name, infohash, metadata, category) VALUES (?, ?, ?, ?, ?)',
+        [raw.toString('base64'), ts.torrent.name, ts.infohash, metadata, category])
+
+      process.exit()
+    })
+  })
+}
+
 function mountTorrents () {
   let mount = argv.path
   let cache = argv.cachePath
   if (!mount) mount = '/tmp/data'
-  console.log(cache)
   if (!cache) cache = '/tmp'
   mount = fs.realpathSync(mount)
   cache = fs.realpathSync(cache)
-  console.log(cache)
 
   let id = 0
 

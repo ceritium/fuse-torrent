@@ -10,6 +10,9 @@ but it allows mounting several torrents at the same time.
 To mount several torrents at the same time without hit the performance of the network it relies upon **SQLite** to
 cache the metadata of the torrents, so then, torrent-playing only connect to the torrent swarm when the filesystem tries to read a file. After some time of inactivity torrent-playing disconnect of the swarm.
 
+## NOTES
+- fuse-bindings does not work with latest node, use node v10 for now
+
 ## Install
 ```
 $ npm install -g fuse-torrent
@@ -23,6 +26,7 @@ You also need to install fuse. See [this link](https://github.com/mafintosh/fuse
 $ fuse-torrent db-prepare
 $ fuse-torrent mount $HOME/torrentfs
 $ fuse-torrent add "magneturl"
+$ fuse-torrent addtorrent x.torrent
 ```
 
 Check help for more info:
@@ -41,6 +45,8 @@ BTW: It works pretty well with Plex.
 
 ## TODO
 
+- [ ] Update to fuse-native to support latest node
+- ---
 - [ ] Better documentation.
 - [ ] Pool for connected torrents.
 - [ ] Clean cached data for `torrent-stream`.
