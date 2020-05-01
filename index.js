@@ -9,28 +9,39 @@ const readTorrent = require('read-torrent')
 const torrentStream = require('torrent-stream')
 const drive = require('./drive.js')
 const Promise = require('bluebird')
-const os = require('os')
 
 var argv = require('yargs')
   .usage('Usage: $0 <command> [options]')
   .command('db-prepare', 'Prepare the db')
-  .command('add <magnetUrl> [category]', 'Add magnet url to the DB', (yargs) => {
+  .command('add <magnetUrl>', 'Add magnet url to the DB', (yargs) => {
     yargs
       .positional('magnetUrl', {
         describe: 'Magnet url',
         type: 'string',
         default: null
       })
+      .demand('magnetUrl')
   })
-  .command('addtorrent <torrentFile> [category]', 'Add torrent file to the DB', (yargs) => {
+  .command('addtorrent <torrentFile>', 'Add torrent file to the DB', (yargs) => {
     yargs
       .positional('torrentFile', {
         describe: 'torrent file',
         type: 'string',
         default: null
       })
+      .demand('torrentFile')
   })
-  .command('mount <path>', 'Mount torrents under specific path', (yargs) => {
+  .command('list', 'List torrents in the DB')
+  .command('remove <id>', 'Remove torrent from the DB', (yargs) => {
+    yargs
+      .positional('id', {
+        describe: 'id to remove',
+        type: 'string',
+        default: null
+      })
+      .demand('infohash')
+  })
+  .command('mount', 'Mount torrents under ./mount', (yargs) => {
     yargs
       .positional('path', {
         describe: 'Path to mount the torrents',
@@ -39,42 +50,40 @@ var argv = require('yargs')
       })
       .demand('path')
   })
-  .option('c', {
-    alias: 'cache-path',
-    description: 'Path for caching',
-    default: '/tmp'
-  })
   .demandCommand()
   .help('help')
   .alias('h', 'help')
   .argv
 
 const command = argv._[0]
-const dbPath = path.join(os.homedir(), '.fusetorrent')
-const dbFile = path.join(dbPath, 'database.sqlite')
+const dbFile = path.join('./', 'database.sqlite')
 
 if (command === 'db-prepare') {
   dbPrepare()
 }
 
 if (command === 'add') {
-  addMagnetUrl(argv.magnetUrl, argv.category)
+  addMagnetUrl(argv.magnetUrl)
 }
 
 if (command === 'addtorrent') {
-  addTorrentFile(argv.torrentFile, argv.category)
+  addTorrentFile(argv.torrentFile)
 }
 
 if (command === 'mount') {
   mountTorrents()
 }
 
+if (command === 'list') {
+  listTorrents()
+}
+
+if (command === 'remove') {
+  removeTorrent(argv.infohash)
+}
+
 function dbPrepare () {
   const migrationsPath = path.join(__dirname, 'migrations')
-  if (!fs.existsSync(dbPath)) {
-    fs.mkdirSync(dbPath)
-  }
-
   console.log('Running pending migrations')
   Promise.resolve()
     .then(() => sqlite.open(dbFile, { Promise }))
@@ -82,28 +91,45 @@ function dbPrepare () {
   console.log('DB ready')
 }
 
-async function addMagnetUrl (magnetUrl, category) {
+async function listTorrents () {
+  const db = await sqlite.open(dbFile)
+  const items = await db.all('SELECT * FROM torrents')
+  items.forEach(item => {
+    console.log(`${item.id}\t${item.infohash || '--'}\t${item.name}`)
+  })
+}
+
+async function addMagnetUrl (magnetUrl) {
   console.log('Fetching torrent')
   const ts = torrentStream(magnetUrl)
   ts.on('ready', async function () {
     const files = ts.files.map((file) => {
       return { path: file.path, length: file.length }
     })
-    console.log('Files:')
-    files.forEach(file => console.log(file))
+    console.log(ts.torrent.name)
     const metadata = JSON.stringify({ files: files })
     const db = await sqlite.open(dbFile)
-    await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata, category) VALUES (?, ?, ?, ?, ?)',
-      [magnetUrl, ts.torrent.name, ts.infohash, metadata, category])
 
+    const items = await db.all(
+      'SELECT * FROM torrents where (name IS NOT NULL AND name = ?) OR (infohash IS NOT NULL AND infohash = ?)',
+      [ts.torrent.name, ts.infohash]
+    )
+    if (items.length > 0) {
+      console.error('torrent with same name or inforhash already in the DB')
+      process.exit(2)
+    }
+
+    await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata) VALUES (?, ?, ?, ?)',
+      [magnetUrl, ts.torrent.name, ts.infohash, metadata])
+
+    console.log('\tADDED')
     process.exit()
   })
 }
 
-async function addTorrentFile (torrentFile, category) {
+async function addTorrentFile (torrentFile) {
   console.log('Fetching torrent')
   readTorrent(torrentFile, function (err, torrent, raw) {
-    console.log(raw.toString('base64'))
     if (err) {
       console.error(err.message)
       process.exit(2)
@@ -113,23 +139,31 @@ async function addTorrentFile (torrentFile, category) {
       const files = ts.files.map((file) => {
         return { path: file.path, length: file.length }
       })
-      console.log('Files:')
-      files.forEach(file => console.log(file))
+      console.log(ts.torrent.name)
       const metadata = JSON.stringify({ files: files })
       const db = await sqlite.open(dbFile)
-      await db.run('INSERT INTO Torrents (torrentfile, name, infohash, metadata, category) VALUES (?, ?, ?, ?, ?)',
-        [raw.toString('base64'), ts.torrent.name, ts.infohash, metadata, category])
 
+      const items = await db.all(
+        'SELECT * FROM torrents where (name IS NOT NULL AND name = ?) OR (infohash IS NOT NULL AND infohash = ?)',
+        [ts.torrent.name, ts.infohash]
+      )
+      if (items.length > 0) {
+        console.error('torrent with same name or inforhash already in the DB')
+        process.exit(2)
+      }
+
+      await db.run('INSERT INTO Torrents (torrentfile, name, infohash, metadata) VALUES (?, ?, ?, ?)',
+        [raw.toString('base64'), ts.torrent.name, ts.infohash, metadata])
+
+      console.log('\tADDED')
       process.exit()
     })
   })
 }
 
 function mountTorrents () {
-  let mount = argv.path
-  let cache = argv.cachePath
-  if (!mount) mount = '/tmp/data'
-  if (!cache) cache = '/tmp'
+  let mount = './mount'
+  let cache = './cache'
   mount = fs.realpathSync(mount)
   cache = fs.realpathSync(cache)
 
@@ -149,6 +183,7 @@ function mountTorrents () {
       events.on('start', source => console.log('Swarm starting ' + source.mnt))
       events.on('ready', source => console.log('Swarm ready ' + source.mnt))
       events.on('stop', source => console.log('Stop swarm' + source.mnt))
+
       events.on('download', index => {
         const down = prettysize(events.engine.swarm.downloaded)
         const downSpeed = prettysize(events.engine.swarm.downloadSpeed()).replace('Bytes', 'b') + '/s'
@@ -159,6 +194,18 @@ function mountTorrents () {
         const connects = events.engine.swarm.wires.reduce(notChoked, 0) + '/' + events.engine.swarm.wires.length + ' peers'
 
         console.log('Downloaded ' + connects + ' : ' + downSpeed + ' : ' + down + ' of ' + prettysize(events.engine.torrent.length) + ' for ' + item.name + ' : ' + index)
+      })
+
+      events.on('upload', index => {
+        const up = prettysize(events.engine.swarm.uploadded)
+        const upSpeed = prettysize(events.engine.swarm.uploadSpeed()).replace('Bytes', 'b') + '/s'
+
+        const notChoked = function (result, wire) {
+          return result + (wire.peerChoking ? 0 : 1)
+        }
+        const connects = events.engine.swarm.wires.reduce(notChoked, 0) + '/' + events.engine.swarm.wires.length + ' peers'
+
+        console.log('Uploaded ' + connects + ' : ' + upSpeed + ' : ' + up + ' of ' + prettysize(events.engine.torrent.length) + ' for ' + item.name + ' : ' + index)
       })
     })
   }
@@ -179,14 +226,15 @@ function mountTorrents () {
         })
       })
     } else {
+      console.log('DONE\n')
       process.exit()
     }
   }
 
   var exit = async function () {
-    console.log('\n')
+    console.log('EXITING\n')
     clearInterval(checkNewTorrentsInterval)
-    setTimeout(process.kill.bind(process, process.pid), 2000).unref()
+    setTimeout(process.kill.bind(process, process.pid), 10000).unref()
     process.removeListener('SIGINT', exit)
     process.removeListener('SIGTERM', exit)
 

@@ -17,10 +17,6 @@ module.exports = function (source, mnt, tmp) {
 
   const sourceFiles = JSON.parse(source.metadata).files
 
-  if (source.category) {
-    mnt = path.join(mnt, path.resolve('/', source.category))
-  }
-
   source.mnt = path.join(mnt, path.resolve('/', source.name))
 
   fuse.unmount(source.mnt, function () {
@@ -34,13 +30,13 @@ module.exports = function (source, mnt, tmp) {
   function engine () {
     if (!_engine) {
       drive.emit('start', source)
-      _engine = torrentStream(source.magnet_url || Buffer.from(source.torrentfile, 'base64'), { tmp: tmp })
+      _engine = torrentStream(source.magnet_url || Buffer.from(source.torrentfile, 'base64'), { tmp: tmp, dht: false })
       drive.engine = _engine
 
       var harakiri = function () {
         if (uninterestedAt) {
           const lapsus = (new Date() - uninterestedAt) / 1000
-          if (lapsus > 10) {
+          if (lapsus > 10 * 60) {
             uninterestedAt = null
             clearInterval(interval)
             engine().destroy()
@@ -53,18 +49,23 @@ module.exports = function (source, mnt, tmp) {
 
       engine().once('ready', function () {
         drive.emit('ready', source)
+
         engine().on('download', function (index) {
           drive.emit('download', index)
         })
 
+        engine().on('upload', function (index) {
+          drive.emit('upload', index)
+        })
+
         engine().on('uninterested', function () {
           uninterestedAt = new Date()
-          engine().swarm.pause()
+          // engine().swarm.pause()
         })
 
         engine().on('interested', function () {
           uninterestedAt = null
-          engine().swarm.resume()
+          // engine().swarm.resume()
         })
       })
     }
