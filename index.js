@@ -119,8 +119,8 @@ async function addMagnetUrl (magnetUrl) {
       process.exit(2)
     }
 
-    await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata) VALUES (?, ?, ?, ?)',
-      [magnetUrl, ts.torrent.name, ts.infohash, metadata])
+    await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata, st) VALUES (?, ?, ?, ?, ?)',
+      [magnetUrl, ts.torrent.name, ts.infohash, metadata, 'FREED'])
 
     console.log('\tADDED')
     process.exit()
@@ -152,8 +152,8 @@ async function addTorrentFile (torrentFile) {
         process.exit(2)
       }
 
-      await db.run('INSERT INTO Torrents (torrentfile, name, infohash, metadata) VALUES (?, ?, ?, ?)',
-        [raw.toString('base64'), ts.torrent.name, ts.infohash, metadata])
+      await db.run('INSERT INTO Torrents (torrentfile, name, infohash, metadata, st) VALUES (?, ?, ?, ?, ?)',
+        [raw.toString('base64'), ts.torrent.name, ts.infohash, metadata, 'FREED'])
 
       console.log('\tADDED')
       process.exit()
@@ -178,35 +178,43 @@ function mountTorrents () {
     items.forEach(item => {
       torrents.push(item)
       id = item.id
-      const events = drive(item, mount, cache)
-      events.on('mount', source => console.log('Mounted ' + source.mnt))
-      events.on('start', source => console.log('Swarm starting ' + source.mnt))
-      events.on('ready', source => console.log('Swarm ready ' + source.mnt))
+      const events = drive(item, mount, cache, db)
+      item.drive = events
+      let lastDown
+      let lastUp
+
+      events.on('mount', source => console.log(`Mounted ${source.st} ${source.mnt}`))
+      events.on('umount', source => console.log(`Unmounted ${source.mnt}`))
+      events.on('deleted', source => {
+        console.log(`Deleted ${source.mnt}`)
+        // statInterval && clearInterval(statInterval)
+        torrents = torrents.filter(item => item.id !== source.id)
+      })
+      events.on('start', source => console.log(`Swarm starting ${source.st} ${source.mnt}`))
+
+      let statInterval
+      events.on('ready', source => {
+        console.log('Swarm ready ' + source.mnt)
+        const statLogFn = () => {
+          if (!events.engine) return
+          const down = events.engine.downloaded
+          const up = events.engine.uploaded
+          const notChoked = function (result, wire) {
+            return result + (wire.peerChoking ? 0 : 1)
+          }
+          const interested = function (result, wire) {
+            return result + (wire.peerInterested ? 1 : 0)
+          }
+          const connects = events.engine.swarm.wires.reduce(interested, 0) + '/' + events.engine.swarm.wires.reduce(notChoked, 0) + '/' + events.engine.swarm.wires.length + ' peers'
+          console.log(`${item.name} ${connects} / D ${prettysize(down - lastDown)}(${prettysize(down)}) U ${prettysize(up - lastUp)}(${prettysize(up)})`)
+          lastUp = up
+          lastDown = down
+        }
+
+        statInterval = setInterval(statLogFn, 10 * 1000)
+      })
+
       events.on('stop', source => console.log('Stop swarm' + source.mnt))
-
-      events.on('download', index => {
-        const down = prettysize(events.engine.swarm.downloaded)
-        const downSpeed = prettysize(events.engine.swarm.downloadSpeed()).replace('Bytes', 'b') + '/s'
-
-        const notChoked = function (result, wire) {
-          return result + (wire.peerChoking ? 0 : 1)
-        }
-        const connects = events.engine.swarm.wires.reduce(notChoked, 0) + '/' + events.engine.swarm.wires.length + ' peers'
-
-        console.log('Downloaded ' + connects + ' : ' + downSpeed + ' : ' + down + ' of ' + prettysize(events.engine.torrent.length) + ' for ' + item.name + ' : ' + index)
-      })
-
-      events.on('upload', index => {
-        const up = prettysize(events.engine.swarm.uploadded)
-        const upSpeed = prettysize(events.engine.swarm.uploadSpeed()).replace('Bytes', 'b') + '/s'
-
-        const notChoked = function (result, wire) {
-          return result + (wire.peerChoking ? 0 : 1)
-        }
-        const connects = events.engine.swarm.wires.reduce(notChoked, 0) + '/' + events.engine.swarm.wires.length + ' peers'
-
-        console.log('Uploaded ' + connects + ' : ' + upSpeed + ' : ' + up + ' of ' + prettysize(events.engine.torrent.length) + ' for ' + item.name + ' : ' + index)
-      })
     })
   }
 
@@ -218,13 +226,21 @@ function mountTorrents () {
 
     if (item) {
       const mnt = path.join(mount, path.resolve('/', item.name))
-      console.log('Unmounting ' + mnt)
+      const _doUnmount = () => {
+        console.log('Unmounting ' + mnt)
 
-      fuse.unmount(mnt, function () {
-        fs.rmdir(mnt, function () {
-          unmount(index + 1)
+        fuse.unmount(mnt, function () {
+          fs.rmdir(mnt, function () {
+            unmount(index + 1)
+          })
         })
-      })
+      }
+      if (item.drive) {
+        console.log(`closing drive instance ${mnt}`)
+        item.drive.destroy(_doUnmount)
+      } else {
+        _doUnmount()
+      }
     } else {
       console.log('DONE\n')
       process.exit()

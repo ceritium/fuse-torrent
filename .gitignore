@@ -1,5 +1,4 @@
-database.sqlite
-data/
 node_modules/
 node-gyp-build
 .DS_Store
+.vscode
