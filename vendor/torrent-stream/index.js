@@ -107,13 +107,25 @@ var torrentStream = function (link, opts, cb) {
   engine.swarm = swarm
   engine._flood = opts.flood
   engine._pulse = opts.pulse
+  engine.uploaded = 0
+  engine.downloaded = 0
+
+  const calcLeft = () => {
+    if (!engine.torrent || !engine.bitfield) return undefined;
+    let leftPieces = 0
+    for (var i = 0; i < engine.torrent.pieces.length; i++) {
+      if (!engine.bitfield.get(i)) leftPieces++
+    }
+    return Math.min(leftPieces * engine.torrent.pieceLength, engine.torrent.length)
+  }
 
   var discovery = peerDiscovery({
     peerId: bufferFrom(opts.id),
     dht: (opts.dht !== undefined) ? opts.dht : true,
     tracker: (opts.tracker !== undefined) ? opts.tracker : true,
     port: DEFAULT_PORT,
-    announce: opts.trackers
+    announce: opts.trackers,
+    getAnnounceOpts: () => ({ uploaded: engine.uploaded, downloaded: engine.downloaded, left: calcLeft() })
   })
   var blocked = blocklist(opts.blocklist)
 
@@ -229,6 +241,7 @@ var torrentStream = function (link, opts, cb) {
 
       engine.emit('verify', index)
       engine.emit('download', index, buffer)
+      engine.downloaded += buffer.length
 
       engine.store.put(index, buffer)
       gc()
@@ -454,8 +467,7 @@ var torrentStream = function (link, opts, cb) {
         if (pieces[index]) return
         engine.store.get(index, { offset: offset, length: length }, function (err, buffer) {
           if (err) return cb(err)
-          engine.emit('upload', index, offset, length)
-          cb(null, buffer)
+          cb(null, buffer, () => (engine.uploaded += buffer.length))
         })
       })
 

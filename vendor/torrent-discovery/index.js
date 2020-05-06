@@ -21,6 +21,7 @@ function Discovery (opts) {
   self.peerId = opts.peerId
   self.port = opts.port || 0 // torrent port
   self.wrtc = opts.wrtc
+  self.getAnnounceOpts = opts.getAnnounceOpts // CHG
   self.intervalMs = opts.intervalMs || (15 * 60 * 1000)
   self.destroyed = false
 
@@ -147,7 +148,8 @@ Discovery.prototype._createTracker = function () {
 
   var trackerOpts = {
     rtcConfig: self.rtcConfig,
-    wrtc: self.wrtc
+    wrtc: self.wrtc,
+    getAnnounceOpts: self.getAnnounceOpts
   }
 
   self.tracker = new Tracker(self.peerId, self.port, torrent, trackerOpts)

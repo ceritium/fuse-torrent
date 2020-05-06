@@ -38,6 +38,7 @@ function HTTPTracker (client, announceUrl, opts) {
 HTTPTracker.prototype.DEFAULT_ANNOUNCE_INTERVAL = 30 * 60 * 1000 // 30 minutes
 
 HTTPTracker.prototype.announce = function (opts) {
+  console.log(`HTTPTracker announce ${opts.downloaded} ${opts.uploaded} ${opts.left}`)
   var self = this
   if (self.destroyed) return
 
@@ -45,7 +46,10 @@ HTTPTracker.prototype.announce = function (opts) {
     compact: (opts.compact == null) ? 1 : opts.compact,
     info_hash: self.client._infoHashBinary,
     peer_id: self.client._peerIdBinary,
-    port: self.client._port
+    port: self.client._port,
+    uploaded: opts.uploaded,
+    downloaded: opts.downloaded,
+    ...(opts.left !== undefined ? { left: opts.left } : {})
   })
   if (self._trackerId) params.trackerid = self._trackerId
 

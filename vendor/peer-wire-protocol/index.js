@@ -276,10 +276,11 @@ Wire.prototype._onrequest = function(i, offset, length) {
 	if (this.amChoking) return;
 
 	var self = this;
-	var respond = function(err, buffer) {
+	var respond = function(err, buffer, cb) {
 		if (request !== pull(self.peerRequests, i, offset, length)) return;
 		if (err) return;
 		self.piece(i, offset, buffer);
+		cb && cb();
 	};
 
 	var request = new Request(i, offset, length, respond);
