@@ -1,0 +1,67 @@
+{
+  "_args": [
+    [
+      "peer-wire-protocol@0.7.1",
+      "/home/ired/_dev/fuse-torrent"
+    ]
+  ],
+  "_from": "peer-wire-protocol@0.7.1",
+  "_id": "peer-wire-protocol@0.7.1",
+  "_inBundle": false,
+  "_integrity": "sha512-V9oTa/ZcfNNz9fAST28Gg0fXbPeFPk3SBImsYO8GDDG5D0E195vxXmjZ+SPrzr4BJyMQmdDmwUfTf9MZ62z4mw==",
+  "_location": "/peer-wire-protocol",
+  "_phantomChildren": {
+    "core-util-is": "1.0.2",
+    "inherits": "2.0.4"
+  },
+  "_requested": {
+    "type": "version",
+    "registry": true,
+    "raw": "peer-wire-protocol@0.7.1",
+    "name": "peer-wire-protocol",
+    "escapedName": "peer-wire-protocol",
+    "rawSpec": "0.7.1",
+    "saveSpec": null,
+    "fetchSpec": "0.7.1"
+  },
+  "_requiredBy": [
+    "/peer-wire-swarm"
+  ],
+  "_resolved": "https://registry.npmjs.org/peer-wire-protocol/-/peer-wire-protocol-0.7.1.tgz",
+  "_spec": "0.7.1",
+  "_where": "/home/ired/_dev/fuse-torrent",
+  "author": {
+    "name": "Mathias Buus Madsen",
+    "email": "mathiasbuus@gmail.com"
+  },
+  "bugs": {
+    "url": "https://github.com/mafintosh/peer-wire-protocol/issues"
+  },
+  "dependencies": {
+    "bitfield": "^0.1.0",
+    "bncode": "^0.2.3",
+    "buffer-alloc": "^1.1.0",
+    "buffer-from": "^1.0.0",
+    "readable-stream": "^1.0.2",
+    "speedometer": "^0.1.2"
+  },
+  "description": "Stream implementing the peer wire protocol used in bittorrent",
+  "homepage": "https://github.com/mafintosh/peer-wire-protocol#readme",
+  "keywords": [
+    "bittorrent",
+    "torrent",
+    "protocol",
+    "stream",
+    "peer",
+    "wire"
+  ],
+  "name": "peer-wire-protocol",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/mafintosh/peer-wire-protocol.git"
+  },
+  "scripts": {
+    "test": "node tests"
+  },
+  "version": "0.7.1"
+}
