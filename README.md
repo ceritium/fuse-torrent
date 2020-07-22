@@ -1,3 +1,11 @@
+# DON'T MERGE IT
+
+Hi, I am Jose, creator of the original fuse-torrent, I couldn't find any other way to communicate with you.
+
+I discover your fork and I think that there are very interesting things, would you like to create a PR? In any case I would like to copy some of your improvements.
+
+You can email me at ceritium@gmail.com
+
 # fuse-torrent
 
 [![npm version](https://badge.fury.io/js/fuse-torrent.svg)](https://badge.fury.io/js/fuse-torrent)
