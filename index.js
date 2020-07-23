@@ -133,9 +133,9 @@ function mountTorrents () {
     process.removeListener('SIGTERM', exit)
 
     fuse.unmount(mount, function () {
-      fs.rmdir(mount, function () {
+      // fs.rmdir(mount, function () {
         process.exit()
-      })
+      // })
     })
   }
 
