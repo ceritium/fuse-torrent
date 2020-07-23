@@ -31,6 +31,7 @@ var argv = require('yargs')
         default: null
       })
   })
+  .command('list', 'List torrents in the DB')
   .command('mount <path>', 'Mount torrents under specific path', (yargs) => {
     yargs
       .positional('path', {
@@ -58,6 +59,10 @@ if (command === 'db-prepare') {
   dbPrepare()
 }
 
+if (command === 'list') {
+  listTorrents()
+}
+
 if (command === 'add') {
   addTorrent(argv.torrentFile, argv.category)
 }
@@ -77,6 +82,16 @@ function dbPrepare () {
     .then(() => sqlite.open(dbFile, { Promise }))
     .then(db => db.migrate({ migrationsPath: migrationsPath }))
   console.log('DB ready')
+}
+
+async function listTorrents () {
+  const db = await sqlite.open(dbFile)
+  const items = await db.all('SELECT * FROM Torrents')
+
+  items.forEach(item => {
+    const line = [item.id, item.infohash, item.name, item.category].filter(x=>x).join('\t')
+    console.log(line)
+  })
 }
 
 async function addTorrent (torrentFile, category) {
