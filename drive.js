@@ -34,7 +34,8 @@ module.exports = function (source, mnt, tmp) {
   function engine () {
     if (!_engine) {
       drive.emit('start', source)
-      _engine = torrentStream(source.magnet_url, { tmp: tmp })
+
+      _engine = torrentStream({ infoHash: source.infohash }, { tmp: tmp })
       drive.engine = _engine
 
       var harakiri = function () {

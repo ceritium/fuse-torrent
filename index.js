@@ -6,17 +6,27 @@ const sqlite = require('sqlite')
 const fs = require('fs')
 const path = require('path')
 const torrentStream = require('torrent-stream')
-const drive = require('./drive.js')
+const readTorrent = require('read-torrent')
 const Promise = require('bluebird')
 const os = require('os')
+
+const drive = require('./drive.js')
 
 var argv = require('yargs')
   .usage('Usage: $0 <command> [options]')
   .command('db-prepare', 'Prepare the db')
-  .command('add <magnetUrl> [category]', 'Add magnet url to the DB', (yargs) => {
+  .command('add-magnet <magnetUrl> [category]', 'Add magnet url to the DB', (yargs) => {
     yargs
       .positional('magnetUrl', {
         describe: 'Magnet url',
+        type: 'string',
+        default: null
+      })
+  })
+  .command('add <torrentFile> [category]', 'Add torrent file to the DB', (yargs) => {
+    yargs
+      .positional('torrentFile', {
+        describe: 'torrent file',
         type: 'string',
         default: null
       })
@@ -49,7 +59,7 @@ if (command === 'db-prepare') {
 }
 
 if (command === 'add') {
-  addMagnetUrl(argv.magnetUrl, argv.category)
+  addTorrent(argv.torrentFile, argv.category)
 }
 
 if (command === 'mount') {
@@ -65,25 +75,31 @@ function dbPrepare () {
   console.log('Running pending migrations')
   Promise.resolve()
     .then(() => sqlite.open(dbFile, { Promise }))
-    .then(db => db.migrate({ force: 'last', migrationsPath: migrationsPath }))
+    .then(db => db.migrate({ migrationsPath: migrationsPath }))
   console.log('DB ready')
 }
 
-async function addMagnetUrl (magnetUrl, category) {
+async function addTorrent (torrentFile, category) {
   console.log('Fetching torrent')
-  const ts = torrentStream(magnetUrl)
-  ts.on('ready', async function () {
-    const files = ts.files.map((file) => {
-      return { path: file.path, length: file.length }
-    })
-    console.log('Files:')
-    files.forEach(file => console.log(file))
-    const metadata = JSON.stringify({ files: files })
-    const db = await sqlite.open(dbFile)
-    await db.run('INSERT INTO Torrents (magnet_url, name, infohash, metadata, category) VALUES (?, ?, ?, ?, ?)',
-      [magnetUrl, ts.torrent.name, ts.infohash, metadata, category])
+  readTorrent(torrentFile, function (err, torrent, raw) {
+    if (err) {
+      console.error(err.message)
+      process.exit(2)
+    }
+    const ts = torrentStream(raw)
+    ts.on('ready', async function () {
+      const files = ts.files.map((file) => {
+        return { path: file.path, length: file.length }
+      })
+      console.log('Files:')
+      files.forEach(file => console.log(file))
+      const metadata = JSON.stringify({ files: files })
+      const db = await sqlite.open(dbFile)
+      await db.run('INSERT INTO Torrents (torrentfile, name, infohash, metadata, category) VALUES (?, ?, ?, ?, ?)',
+        [ts.metadata.toString('base64'), ts.torrent.name, torrent.infoHash, metadata, category])
 
-    process.exit()
+      process.exit()
+    })
   })
 }
 
