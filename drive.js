@@ -1,48 +1,48 @@
 const prettysize = require('prettysize')
 const Fuse = require('fuse-native')
 const torrentStream = require('torrent-stream')
-const sqlite = require('sqlite')
 const path = require('path')
+
+const dbFind = require('./db.js').dbFind
 
 const ENOENT = Fuse.ENOENT
 const ZERO = 0
 
-module.exports = async function (dbFile, mnt, tmp) {
-  const db = await sqlite.open(dbFile)
-
-  var ctime = new Date()
-  var mtime = new Date()
+module.exports = async function (mnt, tmp) {
+  const ctime = new Date()
+  const mtime = new Date()
   let uninterestedAt = null
 
-  var items = []
-  var sourceFiles = []
-  var categories = []
-  var files = {}
+  let items = []
+  let sourceFiles = []
+  let categories = []
+  const files = {}
 
   async function refreshFiles () {
-    const newItems = await db.all('SELECT * FROM torrents')
-    newItems.forEach(function (item) {
-      if (item.category) {
-        item.path = path.join(item.category, item.name)
+    dbFind({}, (newItems) => {
+      newItems.forEach(function (item) {
+        if (item.category) {
+          item.path = path.join(item.category, item.name)
+        }
+      })
+      if (items !== newItems) {
+        items = newItems
+        categories = Array.from(new Set(
+          items.filter(function (item) { return item.category }).map(function (item) { return item.category })
+        ))
+        const newSourceFiles = []
+        items.forEach(function (item) {
+          const itemFiles = JSON.parse(item.metadata).files
+          itemFiles.forEach(function (file) {
+            if (item.category) {
+              file.path = path.join(item.category, file.path)
+            }
+            newSourceFiles.push(file)
+          })
+        })
+        sourceFiles = newSourceFiles
       }
     })
-    if (items !== newItems) {
-      items = newItems
-      categories = Array.from(new Set(
-        items.filter(function (item) { return item.category }).map(function (item) { return item.category })
-      ))
-      const newSourceFiles = []
-      items.forEach(function (item) {
-        const itemFiles = JSON.parse(item.metadata).files
-        itemFiles.forEach(function (file) {
-          if (item.category) {
-            file.path = path.join(item.category, file.path)
-          }
-          newSourceFiles.push(file)
-        })
-      })
-      sourceFiles = newSourceFiles
-    }
   }
 
   await refreshFiles()
@@ -190,7 +190,7 @@ module.exports = async function (dbFile, mnt, tmp) {
         return term === name
       })
 
-      let _engine = torrentStream({ infoHash: target.infohash }, { tmp: tmp })
+      let _engine = torrentStream({ infoHash: target.infoHash }, { tmp: tmp })
       _engines[name] = _engine
 
       var harakiri = function () {

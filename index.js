@@ -1,18 +1,13 @@
 #!/usr/bin/env node
-
-const sqlite = require('sqlite')
 const fs = require('fs')
-const path = require('path')
 const torrentStream = require('torrent-stream')
 const readTorrent = require('read-torrent')
-const Promise = require('bluebird')
-const os = require('os')
 
 const drive = require('./drive.js')
+const dbFind = require('./db.js').dbFind
 
 var argv = require('yargs')
   .usage('Usage: $0 <command> [options]')
-  .command('db-prepare', 'Prepare the db')
   .command('add <torrentFile> [category]', 'Add torrent file to the DB', (yargs) => {
     yargs
       .positional('torrentFile', {
@@ -42,13 +37,6 @@ var argv = require('yargs')
   .argv
 
 const command = argv._[0]
-const dbPath = path.join(os.homedir(), '.fusetorrent')
-const dbFile = path.join(dbPath, 'database.sqlite')
-
-if (command === 'db-prepare') {
-  dbPrepare()
-}
-
 if (command === 'list') {
   listTorrents()
 }
@@ -61,26 +49,12 @@ if (command === 'mount') {
   mountTorrents()
 }
 
-function dbPrepare () {
-  const migrationsPath = path.join(__dirname, 'migrations')
-  if (!fs.existsSync(dbPath)) {
-    fs.mkdirSync(dbPath)
-  }
-
-  console.log('Running pending migrations')
-  Promise.resolve()
-    .then(() => sqlite.open(dbFile, { Promise }))
-    .then(db => db.migrate({ migrationsPath: migrationsPath }))
-  console.log('DB ready')
-}
-
 async function listTorrents () {
-  const db = await sqlite.open(dbFile)
-  const items = await db.all('SELECT * FROM Torrents')
-
-  items.forEach(item => {
-    const line = [item.id, item.infohash, item.name, item.category].filter(x => x).join('\t')
-    console.log(line)
+  dbFind({}, (items) => {
+    items.forEach(item => {
+      const line = [item.infoHash, item.name, item.category].filter(x => x).join('\t')
+      console.log(line)
+    })
   })
 }
 
@@ -99,11 +73,19 @@ async function addTorrent (torrentFile, category) {
       console.log('Files:')
       files.forEach(file => console.log(file))
       const metadata = JSON.stringify({ files: files })
-      const db = await sqlite.open(dbFile)
-      await db.run('INSERT INTO Torrents (torrentfile, name, infohash, metadata, category) VALUES (?, ?, ?, ?, ?)',
-        [ts.metadata.toString('base64'), ts.torrent.name, torrent.infoHash, metadata, category])
 
-      process.exit()
+      const doc = {
+        torrentFile: ts.metadata.toString('base64'),
+        name: ts.torrent.name,
+        infoHash: torrent.infoHash,
+        metadata: metadata,
+        category: category
+      }
+
+      db.insert(doc, function (err, newDoc) {
+        if (err) console.log(err)
+        process.exit()
+      })
     })
   })
 }
@@ -116,5 +98,5 @@ function mountTorrents () {
   mount = fs.realpathSync(mount)
   cache = fs.realpathSync(cache)
 
-  drive(dbFile, mount, cache)
+  drive(mount, cache)
 }
