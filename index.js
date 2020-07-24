@@ -5,6 +5,7 @@ const readTorrent = require('read-torrent')
 
 const drive = require('./drive.js')
 const dbFind = require('./db.js').dbFind
+const db = require('./db.js').db
 
 var argv = require('yargs')
   .usage('Usage: $0 <command> [options]')
