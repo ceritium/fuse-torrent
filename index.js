@@ -13,14 +13,6 @@ const drive = require('./drive.js')
 var argv = require('yargs')
   .usage('Usage: $0 <command> [options]')
   .command('db-prepare', 'Prepare the db')
-  .command('add-magnet <magnetUrl> [category]', 'Add magnet url to the DB', (yargs) => {
-    yargs
-      .positional('magnetUrl', {
-        describe: 'Magnet url',
-        type: 'string',
-        default: null
-      })
-  })
   .command('add <torrentFile> [category]', 'Add torrent file to the DB', (yargs) => {
     yargs
       .positional('torrentFile', {
