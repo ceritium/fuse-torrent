@@ -254,5 +254,15 @@ module.exports = async function (dbFile, mnt, tmp) {
       return result || (file.path === filePath && file)
     }, null)
   }
-}
 
+  process.once('SIGINT', function () {
+    setTimeout(process.kill.bind(process, process.pid), 2000).unref()
+    fuse.unmount(err => {
+      if (err) {
+        console.log('filesystem at ' + fuse.mnt + ' not unmounted', err)
+      } else {
+        console.log('filesystem at ' + fuse.mnt + ' unmounted')
+      }
+    })
+  })
+}

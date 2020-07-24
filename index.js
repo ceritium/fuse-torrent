@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-const fuse = require('fuse-bindings')
 const sqlite = require('sqlite')
 const fs = require('fs')
 const path = require('path')
@@ -88,7 +87,7 @@ async function listTorrents () {
   const items = await db.all('SELECT * FROM Torrents')
 
   items.forEach(item => {
-    const line = [item.id, item.infohash, item.name, item.category].filter(x=>x).join('\t')
+    const line = [item.id, item.infohash, item.name, item.category].filter(x => x).join('\t')
     console.log(line)
   })
 }
@@ -126,19 +125,4 @@ function mountTorrents () {
   cache = fs.realpathSync(cache)
 
   drive(dbFile, mount, cache)
-  var exit = async function () {
-    console.log('\n')
-    setTimeout(process.kill.bind(process, process.pid), 2000).unref()
-    process.removeListener('SIGINT', exit)
-    process.removeListener('SIGTERM', exit)
-
-    fuse.unmount(mount, function () {
-      // fs.rmdir(mount, function () {
-        process.exit()
-      // })
-    })
-  }
-
-  process.on('SIGINT', exit)
-  process.on('SIGTERM', exit)
 }
