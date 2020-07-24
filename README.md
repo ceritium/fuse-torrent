@@ -47,4 +47,3 @@ BTW: It works pretty well with Plex.
 - [ ] Avoid duplicates by infohash.
 - [ ] Allow more parameters on cli.
 - [ ] Configuration by file.
-- [ ] Add version to cli.
