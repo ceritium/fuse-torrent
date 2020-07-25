@@ -168,7 +168,7 @@ module.exports = async function (mnt, tmp) {
     }
   }
 
-  const opts = { force: true, mkdir: true, displayFolder: true }
+  const opts = { force: true, mkdir: true, displayFolder: true, allowOther: true }
   const fuse = new Fuse(mnt, handlers, opts)
   fuse.mount()
   console.log(`fuse-torrent ready: ${mnt}`)
@@ -217,10 +217,9 @@ module.exports = async function (mnt, tmp) {
 
       _engine.on('interested', function () {
         uninterestedAt = null
-        if(_engine.swarm) {
+        if (_engine.swarm) {
           _engine.swarm.resume()
-        } else {
-          _engine
+        }
       })
 
       _engine.once('ready', () => console.log('Swarm ready ' + name))
