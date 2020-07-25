@@ -20,7 +20,6 @@ You also need to install fuse. See [this link](https://github.com/mafintosh/fuse
 ## Usage
 
 ```
-$ fuse-torrent db-prepare
 $ fuse-torrent mount $HOME/torrentfs
 $ fuse-torrent add "magneturl"
 ```
