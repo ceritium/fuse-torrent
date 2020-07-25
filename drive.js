@@ -196,19 +196,19 @@ module.exports = async function (mnt, tmp) {
       var harakiri = function () {
         if (uninterestedAt) {
           const lapsus = (new Date() - uninterestedAt) / 1000
-          if (lapsus > 10) {
+          if (lapsus > 60) {
             uninterestedAt = null
             clearInterval(interval)
             if (_engine) {
+              _engines[name] = null
               _engine.destroy()
               _engine = null
-              _engines[name] = null
             }
             console.log('Stop swarm ' + name)
           }
         }
       }
-      var interval = setInterval(harakiri, 5000)
+      var interval = setInterval(harakiri, 6000)
 
       _engine.on('uninterested', function () {
         uninterestedAt = new Date()
@@ -217,7 +217,10 @@ module.exports = async function (mnt, tmp) {
 
       _engine.on('interested', function () {
         uninterestedAt = null
-        _engine.swarm.resume()
+        if(_engine.swarm) {
+          _engine.swarm.resume()
+        } else {
+          _engine
       })
 
       _engine.once('ready', () => console.log('Swarm ready ' + name))
