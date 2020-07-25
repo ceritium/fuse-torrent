@@ -200,9 +200,9 @@ module.exports = async function (mnt, tmp) {
             uninterestedAt = null
             clearInterval(interval)
             if (_engine) {
+              _engines[name] = null
               _engine.destroy()
               _engine = null
-              _engines[name] = null
             }
             console.log('Stop swarm ' + name)
           }
@@ -217,7 +217,10 @@ module.exports = async function (mnt, tmp) {
 
       _engine.on('interested', function () {
         uninterestedAt = null
-        _engine.swarm.resume()
+        if(_engine.swarm) {
+          _engine.swarm.resume()
+        } else {
+          _engine
       })
 
       _engine.once('ready', () => console.log('Swarm ready ' + name))
