@@ -8,6 +8,7 @@ const dbFile = path.join(dbPath, 'datastore')
 const db = new Datastore({ filename: dbFile, autoload: true })
 
 const dbFind = function (query = {}, cb) {
+  db.loadDatabase()
   return db.find(query, (err, items) => {
     if (err) console.log(err)
     cb(items)

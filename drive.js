@@ -147,27 +147,21 @@ module.exports = async function (mnt, tmp) {
 
       const loop = function () {
         if (engine(filePath).files.length === 0) return engine(filePath).once('ready', loop)
-
         if (!f.stream) {
-          const f2 = findFromTorrent(filePath)
-          f.stream = f2.createReadStream({ start: offset })
+          const fileTorrent = findFromTorrent(filePath)
+          f.stream = fileTorrent.createReadStream({ start: offset })
           f.offset = offset
         }
 
-        const innerLoop = function () {
-          const result = f.stream.read(len)
-          if (!result) return f.stream.once('readable', innerLoop)
-          result.copy(buf)
-          cb(result.length)
-        }
+        const result = f.stream.read(len)
+        if (!result) return f.stream.once('readable', loop)
 
-        innerLoop()
+        result.copy(buf)
+        cb(result.length)
       }
-
       loop()
     }
   }
-
   const opts = { force: true, mkdir: true, displayFolder: true, allowOther: true }
   const fuse = new Fuse(mnt, handlers, opts)
   fuse.mount()
